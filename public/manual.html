@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>議事録AI 取扱説明書</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Zen Maru Gothic', sans-serif;
+      background: #f5f5f0;
+      color: #2d2d2d;
+      line-height: 1.9;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
+    }
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      color: #6b6b6b;
+      text-decoration: none;
+      font-size: 0.9rem;
+      margin-bottom: 1.5rem;
+    }
+    .back-link:hover { color: #3b82f6; }
+
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-bottom: 0.3rem;
+      text-align: center;
+    }
+    .company {
+      text-align: center;
+      color: #6b6b6b;
+      font-size: 0.9rem;
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid #e5e5e0;
+    }
+
+    h2 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #1d4ed8;
+      margin: 2rem 0 0.75rem;
+      padding-bottom: 0.3rem;
+      border-bottom: 2px solid #dbeafe;
+    }
+
+    h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin: 1.2rem 0 0.5rem;
+    }
+
+    p { margin: 0.5rem 0; }
+
+    /* Step card */
+    .step {
+      background: #ffffff;
+      border: 1px solid #e5e5e0;
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+    .step-num {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 2rem;
+      height: 2rem;
+      background: #3b82f6;
+      color: white;
+      border-radius: 50%;
+      font-size: 0.95rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .step-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+
+    /* Prompt box */
+    .prompt-box {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      margin: 0.75rem 0;
+      font-size: 0.88rem;
+      line-height: 1.7;
+      position: relative;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .prompt-label {
+      display: inline-block;
+      background: #585b70;
+      color: #cdd6f4;
+      font-size: 0.72rem;
+      font-weight: 500;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      margin-bottom: 0.5rem;
+    }
+    .copy-btn {
+      position: absolute;
+      top: 0.75rem;
+      right: 0.75rem;
+      background: #585b70;
+      color: #cdd6f4;
+      border: none;
+      border-radius: 6px;
+      padding: 0.3rem 0.7rem;
+      font-size: 0.75rem;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .copy-btn:hover { background: #7f849c; }
+
+    /* Tips & warnings */
+    .tip {
+      background: #f0fdf4;
+      border-left: 3px solid #22c55e;
+      border-radius: 0 8px 8px 0;
+      padding: 0.75rem 1rem;
+      margin: 0.75rem 0;
+      font-size: 0.9rem;
+    }
+    .tip-title { font-weight: 700; color: #16a34a; margin-bottom: 0.2rem; }
+
+    .warning {
+      background: #fffbeb;
+      border-left: 3px solid #f59e0b;
+      border-radius: 0 8px 8px 0;
+      padding: 0.75rem 1rem;
+      margin: 0.75rem 0;
+      font-size: 0.9rem;
+    }
+    .warning-title { font-weight: 700; color: #d97706; margin-bottom: 0.2rem; }
+
+    .info {
+      background: #eff6ff;
+      border-left: 3px solid #3b82f6;
+      border-radius: 0 8px 8px 0;
+      padding: 0.75rem 1rem;
+      margin: 0.75rem 0;
+      font-size: 0.9rem;
+    }
+    .info-title { font-weight: 700; color: #2563eb; margin-bottom: 0.2rem; }
+
+    /* URL box */
+    .url-box {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: #f0f0ec;
+      border: 1px solid #e5e5e0;
+      border-radius: 8px;
+      padding: 0.6rem 1rem;
+      margin: 0.5rem 0;
+    }
+    .url-box a {
+      color: #3b82f6;
+      font-weight: 500;
+      text-decoration: none;
+      word-break: break-all;
+    }
+    .url-box a:hover { text-decoration: underline; }
+
+    /* Image placeholder */
+    .screenshot {
+      background: #e8e8e4;
+      border: 1px solid #d5d5d0;
+      border-radius: 8px;
+      padding: 1rem;
+      margin: 0.75rem 0;
+      text-align: center;
+      color: #888;
+      font-size: 0.85rem;
+    }
+
+    ol, ul { padding-left: 1.5rem; margin: 0.5rem 0; }
+    li { margin: 0.3rem 0; }
+
+    /* Flow chart */
+    .flow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      margin: 1.5rem 0;
+      flex-wrap: wrap;
+    }
+    .flow-item {
+      background: #dbeafe;
+      color: #1d4ed8;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-weight: 500;
+      font-size: 0.9rem;
+      text-align: center;
+    }
+    .flow-arrow {
+      color: #94a3b8;
+      font-size: 1.2rem;
+    }
+    .flow-item.alt {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    /* Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0.75rem 0;
+      font-size: 0.9rem;
+    }
+    th, td {
+      border: 1px solid #e5e5e0;
+      padding: 0.5rem 0.75rem;
+      text-align: left;
+    }
+    th {
+      background: #f0f0ec;
+      font-weight: 700;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      color: #94a3b8;
+      font-size: 0.8rem;
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid #e5e5e0;
+    }
+
+    @media (max-width: 600px) {
+      .container { padding: 1rem; }
+      h1 { font-size: 1.3rem; }
+      .flow { flex-direction: column; }
+      .flow-arrow { transform: rotate(90deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="/" class="back-link">&larr; 議事録AIに戻る</a>
+
+    <h1>議事録AI 取扱説明書</h1>
+    <p class="company">株式会社エフシー 取締役会議事録 自動生成システム</p>
+
+    <!-- ===== 概要 ===== -->
+    <h2>このアプリについて</h2>
+    <p>取締役会の録音データから、AIが自動で議事録を作成するWebアプリです。</p>
+    <p>出力されるWordファイルは、A3横の正式な取締役会議事録フォーマット（左側に議案内容、右側に署名欄）です。</p>
+
+    <div class="flow">
+      <div class="flow-item">会議を録音</div>
+      <span class="flow-arrow">&rarr;</span>
+      <div class="flow-item">音声をアップロード</div>
+      <span class="flow-arrow">&rarr;</span>
+      <div class="flow-item">AIが文字起こし</div>
+      <span class="flow-arrow">&rarr;</span>
+      <div class="flow-item">AIが議事録作成</div>
+      <span class="flow-arrow">&rarr;</span>
+      <div class="flow-item">Word出力</div>
+    </div>
+
+    <div class="info">
+      <div class="info-title">必要なもの</div>
+      <ul>
+        <li>会議の録音ファイル（MP3, M4A, WAV, MP4 など）</li>
+        <li>Gemini APIキー（無料で取得可能）</li>
+        <li>パソコンのブラウザ（Chrome推奨）</li>
+      </ul>
+    </div>
+
+    <!-- ===== 初回設定 ===== -->
+    <h2>初回設定（最初の1回だけ）</h2>
+
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">1</div>
+        <div class="step-title">Gemini APIキーを取得する</div>
+      </div>
+      <p>議事録AIを動かすには、GoogleのAI「Gemini」のAPIキーが必要です。<strong>無料</strong>で取得できます。</p>
+      <div class="url-box">
+        <a href="/guide.html" target="_blank">APIキーの取得方法（図解ガイド）</a>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">2</div>
+        <div class="step-title">APIキーをアプリに設定する</div>
+      </div>
+      <ol>
+        <li>議事録AIの画面右上にある <strong>「APIキー未設定」</strong> ボタンをクリック</li>
+        <li>表示されたダイアログにAPIキーを貼り付けて <strong>「確認」</strong> を押す</li>
+        <li>「有効なAPIキーです」と表示されれば完了</li>
+      </ol>
+      <div class="tip">
+        <div class="tip-title">ポイント</div>
+        APIキーは一度設定すれば、ブラウザが記憶します。次回以降は入力不要です。
+      </div>
+    </div>
+
+    <!-- ===== 基本的な使い方 ===== -->
+    <h2>基本的な使い方</h2>
+
+    <h3>方法A: 音声ファイルから自動で文字起こし + 議事録作成</h3>
+
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">1</div>
+        <div class="step-title">会議情報を入力する</div>
+      </div>
+      <ul>
+        <li><strong>会議名:</strong> 「取締役会」と入力（初期値で入っています）</li>
+        <li><strong>日時:</strong> 会議の日時を選択</li>
+        <li><strong>出席取締役:</strong> 出席者の名前を入力</li>
+      </ul>
+    </div>
+
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">2</div>
+        <div class="step-title">音声ファイルをアップロードする</div>
+      </div>
+      <p>「音声ファイル」エリアをクリックするか、ファイルをドラッグ&ドロップします。</p>
+      <div class="info">
+        <div class="info-title">対応ファイル形式</div>
+        MP3, WAV, M4A, MP4, OGG, WebM, FLAC, AAC
+      </div>
+      <div class="tip">
+        <div class="tip-title">自動圧縮機能</div>
+        5MB以上のファイルは自動で圧縮されます。大きなファイルでもそのままアップロードしてください。
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">3</div>
+        <div class="step-title">「文字起こし開始」をクリック</div>
+      </div>
+      <p>AIが音声を分析して、テキストに変換します。1時間の音声で1〜3分程度かかります。</p>
+      <p>完了すると「文字起こし結果」欄にテキストが表示されます。</p>
+      <div class="warning">
+        <div class="warning-title">エラーが出た場合</div>
+        「AIサーバーが混み合っています」と表示された場合は、1〜2分待ってから再度ボタンを押してください。
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">4</div>
+        <div class="step-title">文字起こし結果を確認する</div>
+      </div>
+      <p>内容を確認し、必要に応じて修正してください。AIの文字起こしは完璧ではないので、固有名詞や数字は特に確認してください。</p>
+    </div>
+
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">5</div>
+        <div class="step-title">「議事録を生成」をクリック</div>
+      </div>
+      <p>文字起こしテキストから、取締役会議事録フォーマットの議事録をAIが自動で作成します。</p>
+    </div>
+
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">6</div>
+        <div class="step-title">議事録を確認・編集してWordで出力</div>
+      </div>
+      <ul>
+        <li><strong>「プレビュー」タブ:</strong> 議事録の内容を確認</li>
+        <li><strong>「編集」タブ:</strong> 内容を修正（修正後「プレビュー」に戻ると反映）</li>
+        <li><strong>「Word」ボタン:</strong> A3横の取締役会議事録フォーマットでダウンロード</li>
+      </ul>
+    </div>
+
+    <!-- ===== 方法B ===== -->
+    <h3>方法B: Google AI Studioで文字起こし + このアプリで議事録作成</h3>
+
+    <p>AIサーバーが混雑して文字起こしがうまくいかない場合は、Google AI Studioで文字起こしだけ行い、その結果をこのアプリに貼り付けて議事録を作成できます。</p>
+
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">1</div>
+        <div class="step-title">Google AI Studioで文字起こしする</div>
+      </div>
+      <ol>
+        <li>下のURLをクリックしてGoogle AI Studioを開きます</li>
+      </ol>
+      <div class="url-box">
+        <a href="https://aistudio.google.com/" target="_blank">https://aistudio.google.com/</a>
+      </div>
+      <ol start="2">
+        <li>モデルは <strong>「Gemini 3 Flash Preview」</strong> を選択</li>
+        <li>音声ファイルをチャット欄にドラッグ&ドロップ</li>
+        <li>以下のプロンプト（指示文）をコピーして送信します</li>
+      </ol>
+
+      <div class="prompt-box">
+        <span class="prompt-label">文字起こし用プロンプト（コピーして使ってください）</span>
+        <button class="copy-btn" onclick="copyPrompt(this)">コピー</button>
+        <br>会議は日本語音声です。この音声ファイルの文字起こしをしてください。
+複数人が話しているので、話す人ごとに改行してください。
+「えー」や「あー」など話す人特有の癖は文字にしないでください。
+改行、句読点を付けてもっと詳細に書いてください。
+発言者ごとに改行してください。</div>
+
+      <ol start="5">
+        <li>文字起こし結果が表示されたら、全文をコピーします</li>
+      </ol>
+    </div>
+
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">2</div>
+        <div class="step-title">議事録AIに貼り付けて議事録を作成</div>
+      </div>
+      <ol>
+        <li>議事録AIの画面で、会議情報（会議名・日時・出席者）を入力</li>
+        <li><strong>「文字起こし結果」欄</strong> にコピーしたテキストを貼り付け</li>
+        <li><strong>「議事録を生成」</strong> ボタンをクリック</li>
+        <li>内容を確認・編集して <strong>「Word」</strong> ボタンでダウンロード</li>
+      </ol>
+    </div>
+
+    <!-- ===== 補足メモ ===== -->
+    <h2>「テキストメモ・補足」欄の使い方</h2>
+    <p>ここに書いた内容は、AIが議事録を作成する際に追加情報として参考にします。</p>
+    <p>例えば以下のような情報を書いておくと、より正確な議事録になります。</p>
+    <ul>
+      <li>「話者Aは田中社長」「話者Bは事務局」</li>
+      <li>「第3号議案は継続審議になった」</li>
+      <li>「会議場所は本社会議室」</li>
+    </ul>
+
+    <!-- ===== Word出力 ===== -->
+    <h2>Word出力について</h2>
+
+    <table>
+      <tr>
+        <th>出力元</th>
+        <th>用紙サイズ</th>
+        <th>レイアウト</th>
+      </tr>
+      <tr>
+        <td>議事録の「Word」ボタン</td>
+        <td>A3 横</td>
+        <td>左: 議案内容、右: 日付・署名欄</td>
+      </tr>
+      <tr>
+        <td>文字起こしの「Word」ボタン</td>
+        <td>A4 縦</td>
+        <td>通常の文書</td>
+      </tr>
+    </table>
+
+    <div class="tip">
+      <div class="tip-title">PDFにしたい場合</div>
+      Wordファイルを開いて「ファイル」→「名前を付けて保存」→ファイル形式で「PDF」を選択してください。
+    </div>
+
+    <!-- ===== トラブルシューティング ===== -->
+    <h2>困ったときは</h2>
+
+    <table>
+      <tr>
+        <th>症状</th>
+        <th>対処法</th>
+      </tr>
+      <tr>
+        <td>「AIサーバーが混み合っています」</td>
+        <td>1〜2分待ってから再度お試しください。混雑は一時的なものです。</td>
+      </tr>
+      <tr>
+        <td>「AIサーバーとの接続が切れました」</td>
+        <td>同上。それでもダメな場合は「方法B」をお試しください。</td>
+      </tr>
+      <tr>
+        <td>文字起こしに時間がかかる</td>
+        <td>大きなファイルは自動圧縮されますが、1時間の音声は1〜3分かかります。</td>
+      </tr>
+      <tr>
+        <td>文字起こしの精度が悪い</td>
+        <td>「文字起こし結果」欄で手動修正できます。また「方法B」のGoogle AI Studioの方が安定する場合があります。</td>
+      </tr>
+      <tr>
+        <td>APIキーが無効と表示される</td>
+        <td><a href="/guide.html">APIキー取得ガイド</a>を見て、新しいキーを作成してください。</td>
+      </tr>
+    </table>
+
+    <!-- ===== 料金 ===== -->
+    <h2>料金について</h2>
+    <p>Gemini APIには無料枠があり、月に数回の取締役会議事録を作成する程度であれば<strong>料金は発生しません</strong>。</p>
+
+    <div class="footer">
+      議事録AI ㈱エフシー仕様 取扱説明書<br>
+      Y.A.Design株式会社
+    </div>
+  </div>
+
+  <script>
+    function copyPrompt(btn) {
+      const text = btn.parentElement.textContent
+        .replace("文字起こし用プロンプト（コピーして使ってください）", "")
+        .replace("コピー", "")
+        .trim();
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = "コピー済み";
+        setTimeout(() => btn.textContent = "コピー", 1500);
+      });
+    }
+  </script>
+</body>
+</html>
