@@ -12,7 +12,8 @@ import { execFile } from "child_process";
 import { writeFileSync, readFileSync, unlinkSync, mkdirSync } from "fs";
 import {
   Document, Packer, Paragraph, TextRun, HeadingLevel,
-  AlignmentType, BorderStyle, LevelFormat, TabStopType, TabStopPosition,
+  AlignmentType, BorderStyle, LevelFormat, TabStopType, TabStopPosition, PageOrientation,
+  Table, TableRow, TableCell, WidthType, VerticalAlign,
 } from "docx";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -20,6 +21,7 @@ const TMP_DIR = resolve(__dirname, "tmp");
 mkdirSync(TMP_DIR, { recursive: true });
 
 const MODEL = "gemini-3-flash-preview";
+const MODEL_FALLBACK = "gemini-2.5-flash";
 const PORT = process.env.PORT || process.env.GIJIROKU_PORT || 3456;
 const MAX_RETRIES = 5;
 const RETRY_DELAY = 5000;
@@ -140,13 +142,18 @@ async function callGeminiSmart(apiKey, body, timeoutMs = 60_000) {
   try {
     return await callGeminiWithRetry(apiKey, MODEL, body, timeoutMs);
   } catch (err) {
-    if (err.message.includes("503") || err.message.includes("UNAVAILABLE"))
-      throw new Error("AIサーバーが現在混み合っています。しばらく時間を置いてから再度お試しください。");
-    if (err.message.includes("fetch failed") || err.message.includes("other side closed"))
-      throw new Error("AIサーバーとの接続が切れました。しばらく時間を置いてから再度お試しください。");
-    if (err.message.includes("timeout") || err.message.includes("aborted"))
-      throw new Error("AIサーバーからの応答がありませんでした。しばらく時間を置いてから再度お試しください。");
-    throw err;
+    console.log(`  → ${MODEL} 失敗, ${MODEL_FALLBACK} にフォールバック...`);
+    try {
+      return await callGeminiWithRetry(apiKey, MODEL_FALLBACK, body, timeoutMs);
+    } catch (err2) {
+      if (err2.message.includes("503") || err2.message.includes("UNAVAILABLE"))
+        throw new Error("AIサーバーが現在混み合っています。しばらく時間を置いてから再度お試しください。");
+      if (err2.message.includes("fetch failed") || err2.message.includes("other side closed"))
+        throw new Error("AIサーバーとの接続が切れました。しばらく時間を置いてから再度お試しください。");
+      if (err2.message.includes("timeout") || err2.message.includes("aborted"))
+        throw new Error("AIサーバーからの応答がありませんでした。しばらく時間を置いてから再度お試しください。");
+      throw err2;
+    }
   }
 }
 
@@ -243,16 +250,74 @@ app.post("/api/generate", async (req, res) => {
 
 // ─── Word出力（取締役会議事録形式・A3） ───
 app.post("/api/export/docx", async (req, res) => {
-  const { markdown, meetingTitle } = req.body;
+  const { markdown, meetingTitle, format } = req.body;
   if (!markdown) return res.status(400).json({ error: "Markdownが空です" });
 
   try {
-    const paragraphs = markdownToDocxParagraphs(markdown);
+    // A4フォーマット（文字起こし用）
+    if (format === "a4") {
+      const paragraphs = convertLinesToParagraphs(markdown, false);
+      const doc = new Document({
+        styles: {
+          default: {
+            document: {
+              run: { font: "Yu Gothic", size: 22 },
+              paragraph: { spacing: { line: 300, after: 0 } },
+            },
+          },
+        },
+        sections: [{
+          properties: {
+            page: {
+              size: { width: 11906, height: 16838 }, // A4
+              margin: { top: 1701, right: 1701, bottom: 1701, left: 1701 },
+            },
+          },
+          children: paragraphs,
+        }],
+      });
+      const buffer = await Packer.toBuffer(doc);
+      const filename = encodeURIComponent(meetingTitle || "文字起こし") + ".docx";
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      return res.send(Buffer.from(buffer));
+    }
+
+    // 取締役会議事録フォーマット（A3横・2段組）
+    const { leftParagraphs, rightParagraphs } = splitAndConvertMarkdown(markdown);
+
+    // A3横: コンテンツ幅 = 23811 - 1701*2 = 20409 DXA
+    const noBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
+    const noBorders = { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder };
+
+    const layoutTable = new Table({
+      width: { size: 20409, type: WidthType.DXA },
+      columnWidths: [10200, 10209],
+      rows: [
+        new TableRow({
+          children: [
+            new TableCell({
+              width: { size: 10200, type: WidthType.DXA },
+              borders: noBorders,
+              verticalAlign: VerticalAlign.TOP,
+              children: leftParagraphs.length > 0 ? leftParagraphs : [new Paragraph({ children: [] })],
+            }),
+            new TableCell({
+              width: { size: 10209, type: WidthType.DXA },
+              borders: noBorders,
+              verticalAlign: VerticalAlign.TOP,
+              children: rightParagraphs.length > 0 ? rightParagraphs : [new Paragraph({ children: [] })],
+            }),
+          ],
+        }),
+      ],
+    });
+
     const doc = new Document({
       styles: {
         default: {
           document: {
-            run: { font: "Century", size: 22 }, // 11pt Century
+            run: { font: "Century", size: 22 },
             paragraph: { spacing: { line: 300, after: 0 } },
           },
         },
@@ -260,13 +325,17 @@ app.post("/api/export/docx", async (req, res) => {
       sections: [{
         properties: {
           page: {
-            size: { width: 16838, height: 23811 }, // A3
+            size: {
+              width: 16838,
+              height: 23811,
+              orientation: PageOrientation.LANDSCAPE,
+            },
             margin: {
-              top: 1701, right: 1701, bottom: 1701, left: 1701, // 30mm全方向
+              top: 1701, right: 1701, bottom: 1701, left: 1701,
             },
           },
         },
-        children: paragraphs,
+        children: [layoutTable],
       }],
     });
 
@@ -281,8 +350,33 @@ app.post("/api/export/docx", async (req, res) => {
   }
 });
 
-// ─── Markdown → docx（取締役会形式） ───
-function markdownToDocxParagraphs(md) {
+// ─── Markdown → docx（取締役会形式・2段組） ───
+function splitAndConvertMarkdown(md) {
+  // 「===SIGNATURE===」で左右に分割。なければ「以上の決議」で分割
+  let leftMd, rightMd;
+  if (md.includes("===SIGNATURE===")) {
+    const parts = md.split("===SIGNATURE===");
+    leftMd = parts[0].trim();
+    rightMd = parts[1].trim();
+  } else if (md.includes("以上の決議")) {
+    const idx = md.indexOf("以上の決議");
+    // 「以上の決議〜」の前の行で分割
+    const beforeIdx = md.lastIndexOf("\n", idx);
+    leftMd = md.slice(0, beforeIdx).trim();
+    rightMd = md.slice(beforeIdx).trim();
+  } else {
+    leftMd = md;
+    rightMd = "";
+  }
+
+  return {
+    leftParagraphs: convertLinesToParagraphs(leftMd, true),
+    rightParagraphs: convertLinesToParagraphs(rightMd, false),
+  };
+}
+
+function convertLinesToParagraphs(md, isLeft) {
+  if (!md) return [];
   const lines = md.split("\n").reduce((acc, line) => {
     if (line.trim() === "" && acc.length > 0 && acc[acc.length - 1].trim() === "") return acc;
     acc.push(line);
@@ -291,18 +385,18 @@ function markdownToDocxParagraphs(md) {
   const paragraphs = [];
 
   for (const line of lines) {
-    // # タイトル → 中央揃え・太字・大きめ
+    // # タイトル → 中央揃え・太字
     if (line.startsWith("# ")) {
       paragraphs.push(new Paragraph({
         alignment: AlignmentType.CENTER,
         spacing: { before: 0, after: 200 },
-        children: [new TextRun({ text: line.slice(2), bold: true, size: 32, font: "MS Mincho" })],
+        children: [new TextRun({ text: line.slice(2), bold: true, size: 28, font: "MS Mincho" })],
       }));
     // ## 議案見出し → 太字
     } else if (line.startsWith("## ")) {
       paragraphs.push(new Paragraph({
         spacing: { before: 200, after: 60 },
-        children: [new TextRun({ text: line.slice(3), bold: true, size: 24, font: "MS Mincho" })],
+        children: [new TextRun({ text: line.slice(3), bold: true, size: 22, font: "MS Mincho" })],
       }));
     // ### 小見出し
     } else if (line.startsWith("### ")) {
@@ -310,21 +404,23 @@ function markdownToDocxParagraphs(md) {
         spacing: { before: 100, after: 0 },
         children: [new TextRun({ text: line.slice(4), bold: true, size: 22, font: "MS Mincho" })],
       }));
-    // --- → スキップ
+    // ---  → スキップ
     } else if (line.startsWith("---")) {
       // スキップ
-    // 空行 → スキップ
+    // 空行 → 空パラグラフ（右側の署名欄で間隔調整に必要）
     } else if (line.trim() === "") {
-      // スキップ
-    // 署名行（インデント付き：「　　　　」で始まる行）
-    } else if (line.startsWith("　　")) {
+      if (!isLeft) {
+        paragraphs.push(new Paragraph({ children: [] }));
+      }
+    // 署名行（全角スペースで始まる）
+    } else if (line.startsWith("　")) {
       paragraphs.push(new Paragraph({
         children: [new TextRun({ text: line, font: "MS Mincho", size: 22 })],
       }));
     // 通常段落
     } else {
       paragraphs.push(new Paragraph({
-        indent: { firstLine: 420 }, // 1文字分字下げ
+        indent: isLeft ? { firstLine: 420 } : undefined,
         children: parseInline(line),
       }));
     }
@@ -393,6 +489,8 @@ ${memo || "（なし）"}
 
 ---
 
+===SIGNATURE===
+
 以上の決議を明確にするため、この議事録を作り、出席取締役の全員がこれに記名押印する。
 
 {日付（令和○年○月○日）}
@@ -412,7 +510,8 @@ ${memo || "（なし）"}
 - 末尾の署名欄は、出席者全員の名前を列挙してください
 - 不明な点は「※要確認」と注記してください
 - 格式のある正式なビジネス文書として記述してください
-- **「承知いたしました」「以下に〜」などの前置き・挨拶文は一切不要です。いきなり「# 取　締　役　会　議　事　録」から始めてください**`;
+- **「承知いたしました」「以下に〜」などの前置き・挨拶文は一切不要です。いきなり「# 取　締　役　会　議　事　録」から始めてください**
+- **署名欄の前に必ず「===SIGNATURE===」という区切り行を入れてください。この行はWord出力時に左右分割の目印として使います**`;
 }
 
 // ─── サーバー起動 ───

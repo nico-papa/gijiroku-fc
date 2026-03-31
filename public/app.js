@@ -318,7 +318,7 @@ async function downloadTranscriptDocx() {
     const res = await fetch("/api/export/docx", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ markdown: transcript, meetingTitle: meetingTitle + "_文字起こし" }),
+      body: JSON.stringify({ markdown: transcript, meetingTitle: meetingTitle + "_文字起こし", format: "a4" }),
     });
     if (!res.ok) {
       const err = await res.json();
