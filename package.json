@@ -1,0 +1,15 @@
+{
+  "name": "gijiroku-fc",
+  "version": "1.0.0",
+  "description": "議事録AI（株式会社エフシー用）- 取締役会議事録",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "docx": "^9.6.1",
+    "express": "^4.21.0",
+    "multer": "^2.1.1"
+  }
+}
