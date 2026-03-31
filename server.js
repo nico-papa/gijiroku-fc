@@ -13,7 +13,6 @@ import { writeFileSync, readFileSync, unlinkSync, mkdirSync } from "fs";
 import {
   Document, Packer, Paragraph, TextRun, HeadingLevel,
   AlignmentType, BorderStyle, LevelFormat, TabStopType, TabStopPosition, PageOrientation,
-  Table, TableRow, TableCell, WidthType, VerticalAlign,
 } from "docx";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -283,35 +282,8 @@ app.post("/api/export/docx", async (req, res) => {
       return res.send(Buffer.from(buffer));
     }
 
-    // 取締役会議事録フォーマット（A3横・2段組）
-    const { leftParagraphs, rightParagraphs } = splitAndConvertMarkdown(markdown);
-
-    // A3横: コンテンツ幅 = 23811 - 1701*2 = 20409 DXA
-    const noBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
-    const noBorders = { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder };
-
-    const layoutTable = new Table({
-      width: { size: 20409, type: WidthType.DXA },
-      columnWidths: [10200, 10209],
-      rows: [
-        new TableRow({
-          children: [
-            new TableCell({
-              width: { size: 10200, type: WidthType.DXA },
-              borders: noBorders,
-              verticalAlign: VerticalAlign.TOP,
-              children: leftParagraphs.length > 0 ? leftParagraphs : [new Paragraph({ children: [] })],
-            }),
-            new TableCell({
-              width: { size: 10209, type: WidthType.DXA },
-              borders: noBorders,
-              verticalAlign: VerticalAlign.TOP,
-              children: rightParagraphs.length > 0 ? rightParagraphs : [new Paragraph({ children: [] })],
-            }),
-          ],
-        }),
-      ],
-    });
+    // 取締役会議事録フォーマット（A3横・2段組・列間40mm）
+    const allParagraphs = convertMarkdownForColumns(markdown);
 
     const doc = new Document({
       styles: {
@@ -334,8 +306,13 @@ app.post("/api/export/docx", async (req, res) => {
               top: 1701, right: 1701, bottom: 1701, left: 1701,
             },
           },
+          column: {
+            count: 2,
+            space: 2268,
+            equalWidth: true,
+          },
         },
-        children: [layoutTable],
+        children: allParagraphs,
       }],
     });
 
@@ -350,29 +327,31 @@ app.post("/api/export/docx", async (req, res) => {
   }
 });
 
-// ─── Markdown → docx（取締役会形式・2段組） ───
-function splitAndConvertMarkdown(md) {
-  // 「===SIGNATURE===」で左右に分割。なければ「以上の決議」で分割
-  let leftMd, rightMd;
+// ─── Markdown → docx（取締役会形式・2段組フロー） ───
+function convertMarkdownForColumns(md) {
+  // 「===SIGNATURE===」で本文と署名欄を分割
+  let bodyMd, signatureMd;
   if (md.includes("===SIGNATURE===")) {
     const parts = md.split("===SIGNATURE===");
-    leftMd = parts[0].trim();
-    rightMd = parts[1].trim();
+    bodyMd = parts[0].trim();
+    signatureMd = parts[1].trim();
   } else if (md.includes("以上の決議")) {
     const idx = md.indexOf("以上の決議");
-    // 「以上の決議〜」の前の行で分割
     const beforeIdx = md.lastIndexOf("\n", idx);
-    leftMd = md.slice(0, beforeIdx).trim();
-    rightMd = md.slice(beforeIdx).trim();
+    bodyMd = md.slice(0, beforeIdx).trim();
+    signatureMd = md.slice(beforeIdx).trim();
   } else {
-    leftMd = md;
-    rightMd = "";
+    bodyMd = md;
+    signatureMd = "";
   }
 
-  return {
-    leftParagraphs: convertLinesToParagraphs(leftMd, true),
-    rightParagraphs: convertLinesToParagraphs(rightMd, false),
-  };
+  // 本文（字下げあり）→ 署名欄（字下げなし）を連結
+  // 2段組なので左段→右段へ自然に流れ、署名欄は本文の直後に配置される
+  const paragraphs = convertLinesToParagraphs(bodyMd, true);
+  if (signatureMd) {
+    paragraphs.push(...convertLinesToParagraphs(signatureMd, false));
+  }
+  return paragraphs;
 }
 
 function convertLinesToParagraphs(md, isLeft) {
@@ -511,7 +490,7 @@ ${memo || "（なし）"}
 - 不明な点は「※要確認」と注記してください
 - 格式のある正式なビジネス文書として記述してください
 - **「承知いたしました」「以下に〜」などの前置き・挨拶文は一切不要です。いきなり「# 取　締　役　会　議　事　録」から始めてください**
-- **署名欄の前に必ず「===SIGNATURE===」という区切り行を入れてください。この行はWord出力時に左右分割の目印として使います**`;
+- **署名欄の前に必ず「===SIGNATURE===」という区切り行を入れてください。この行はWord出力時に本文と署名欄の区切りとして使います**`;
 }
 
 // ─── サーバー起動 ───
