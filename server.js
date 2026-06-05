@@ -25,6 +25,9 @@ const PORT = process.env.PORT || process.env.GIJIROKU_PORT || 3456;
 const MAX_RETRIES = 5;
 const RETRY_DELAY = 5000;
 
+// 配布版で起動バッチが set GEMINI_API_KEY=... で埋め込むキー（無ければ画面入力にフォールバック）
+const EMBEDDED_KEY = (process.env.GEMINI_API_KEY || "").trim();
+
 const app = express();
 app.use(express.json({ limit: "10mb" }));
 app.use(express.static(resolve(__dirname, "public")));
@@ -62,7 +65,7 @@ function compressAudio(buffer, originalName) {
 }
 
 function getApiKey(req) {
-  const key = req.headers["x-api-key"] || req.body?.apiKey;
+  const key = req.headers["x-api-key"] || req.body?.apiKey || EMBEDDED_KEY;
   if (!key) throw new Error("Gemini APIキーが設定されていません。画面上部でAPIキーを入力してください。");
   return key;
 }
@@ -173,6 +176,13 @@ async function callGeminiWithFileUri(apiKey, fileUri, mimeType, prompt) {
   }, 120_000);
 }
 
+// ─── フロント設定（埋め込みキーの有無を通知） ───
+app.get("/api/config", (req, res) => {
+  // 公開URLでもキー値は絶対に返さない。設定済みか否かのフラグのみ返す
+  // （キーはサーバー側 EMBEDDED_KEY で補完し、ブラウザには渡さない）
+  res.json({ keyEmbedded: !!EMBEDDED_KEY });
+});
+
 // ─── APIキー検証 ───
 app.post("/api/verify-key", async (req, res) => {
   try {
@@ -189,7 +199,7 @@ app.post("/api/transcribe", upload.single("audio"), async (req, res) => {
   req.setTimeout(600_000);
   res.setTimeout(600_000);
   try {
-    const apiKey = req.headers["x-api-key"];
+    const apiKey = req.headers["x-api-key"] || EMBEDDED_KEY;
     if (!apiKey) return res.status(400).json({ error: "APIキーが設定されていません" });
     if (!req.file) return res.status(400).json({ error: "音声ファイルが指定されていません" });
 
@@ -494,9 +504,11 @@ ${memo || "（なし）"}
 }
 
 // ─── サーバー起動 ───
-const server = app.listen(PORT, () => {
-  console.log(`\n🎙️  議事録AI（エフシー用）サーバー起動`);
-  console.log(`   http://localhost:${PORT}\n`);
+// バインド先: クラウドは 0.0.0.0（プロキシから到達可能に）。
+// ローカルで使う場合は HOST=127.0.0.1 を指定すればループバック限定にできる。
+const HOST = process.env.HOST || "0.0.0.0";
+const server = app.listen(PORT, HOST, () => {
+  console.log(`\n🎙️  議事録AI（エフシー用）サーバー起動 (host ${HOST}, port ${PORT})\n`);
 });
 
 server.timeout = 600_000;

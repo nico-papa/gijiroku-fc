@@ -7,6 +7,7 @@ let selectedFile = null;
 
 // --- APIキー管理 ---
 const API_KEY_STORAGE = "gijiroku_api_key";
+let serverKeyEmbedded = false; // サーバー側に GEMINI_API_KEY が設定済みか（値はブラウザに渡さない）
 
 function getApiKey() {
   return document.getElementById("apiKey").value.trim();
@@ -15,11 +16,17 @@ function getApiKey() {
 function requireApiKey() {
   const key = getApiKey();
   if (!key) {
+    if (serverKeyEmbedded) return "__SERVER__"; // サーバーがキーを補完する
     alert("Gemini APIキーを入力してください。");
     document.getElementById("apiKey").focus();
     return null;
   }
   return key;
+}
+
+// fetch用: サーバー補完時は空ヘッダを送る（サーバーが環境変数のキーを使う）
+function apiKeyHeader(apiKey) {
+  return apiKey === "__SERVER__" ? "" : apiKey;
 }
 
 function toggleApiKeyDialog() {
@@ -37,7 +44,7 @@ function updateApiKeyLabel() {
   const key = getApiKey();
   const label = document.getElementById("apiKeyLabel");
   const btn = document.getElementById("btnApiKeyToggle");
-  if (key) {
+  if (key || serverKeyEmbedded) {
     label.textContent = "APIキー設定済み";
     btn.classList.add("configured");
   } else {
@@ -158,7 +165,7 @@ async function transcribeAudio() {
 
     const res = await fetch("/api/transcribe", {
       method: "POST",
-      headers: { "X-Api-Key": apiKey },
+      headers: { "X-Api-Key": apiKeyHeader(apiKey) },
       body: formData,
       signal: AbortSignal.timeout(600_000),
     });
@@ -212,7 +219,7 @@ async function generateMinutes() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Api-Key": apiKey,
+        "X-Api-Key": apiKeyHeader(apiKey),
       },
       body: JSON.stringify({ transcript, memo, meetingTitle, participants, date }),
     });
@@ -371,12 +378,19 @@ function triggerDownload(blob, filename) {
 document.addEventListener("DOMContentLoaded", () => {
   initUpload();
 
-  // 保存済みAPIキーを復元
+  // APIキー: ローカル保存があれば復元。サーバー側にキーがあれば「設定済み」扱い
+  // （キー値はブラウザに渡さない＝公開URLでも漏れない）
   const savedKey = localStorage.getItem(API_KEY_STORAGE);
   if (savedKey) {
     document.getElementById("apiKey").value = savedKey;
   }
-  updateApiKeyLabel();
+  fetch("/api/config")
+    .then((r) => r.json())
+    .then((cfg) => {
+      if (cfg && cfg.keyEmbedded) serverKeyEmbedded = true;
+      updateApiKeyLabel();
+    })
+    .catch(() => updateApiKeyLabel());
 
   // 日時デフォルト
   const now = new Date();
