@@ -183,6 +183,14 @@ app.get("/api/config", (req, res) => {
   res.json({ keyEmbedded: !!EMBEDDED_KEY });
 });
 
+// ─── 一時診断用（環境変数の認識状況を値を出さずに確認・確認後に削除する） ───
+app.get("/api/debug-env", (req, res) => {
+  res.json({
+    geminiLen: (process.env.GEMINI_API_KEY || "").length,
+    relatedKeyNames: Object.keys(process.env).filter((k) => /gemini|api|key|secret/i.test(k)),
+  });
+});
+
 // ─── APIキー検証 ───
 app.post("/api/verify-key", async (req, res) => {
   try {
