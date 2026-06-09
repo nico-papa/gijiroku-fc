@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>株式会社エフシー議事録AI</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f6f7f4;
+      --panel: #ffffff;
+      --text: #262626;
+      --muted: #667085;
+      --line: #d8ddd3;
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --accent: #0f766e;
+      --danger: #dc2626;
+      --success: #16a34a;
+      --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 8px 24px rgba(16, 24, 40, 0.06);
+    }
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Yu Gothic", "YuGothic", "Meiryo", system-ui, sans-serif;
+      line-height: 1.65;
+    }
+    .container {
+      width: min(980px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 56px;
+    }
+    header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: start;
+      margin-bottom: 20px;
+    }
+    h1 { font-size: 1.8rem; line-height: 1.25; letter-spacing: 0; }
+    .subtitle { color: var(--muted); margin-top: 4px; font-size: 0.95rem; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+    .card h2 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 1rem;
+      line-height: 1.35;
+      margin-bottom: 12px;
+    }
+    .step {
+      display: inline-grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: #fff;
+      font-size: 0.8rem;
+      flex: 0 0 auto;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .full { grid-column: 1 / -1; }
+    label {
+      display: block;
+      color: #475467;
+      font-size: 0.86rem;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+    input, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--text);
+      font: inherit;
+      font-size: 0.95rem;
+      padding: 10px 12px;
+    }
+    textarea { resize: vertical; min-height: 96px; }
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+    .hint {
+      color: var(--muted);
+      font-size: 0.86rem;
+      margin-bottom: 10px;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 20px 0;
+    }
+    .row-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    button {
+      border: 1px solid transparent;
+      border-radius: 8px;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 700;
+      min-height: 38px;
+      padding: 8px 14px;
+    }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-dark); }
+    .btn-accent { background: var(--accent); color: #fff; }
+    .btn-ghost { background: #fff; color: var(--text); border-color: var(--line); }
+    .btn-ghost:hover { border-color: var(--primary); color: var(--primary); }
+    .btn-small { min-height: 32px; padding: 5px 10px; font-size: 0.86rem; }
+    .api-button.configured { border-color: var(--success); color: var(--success); }
+    .tabs {
+      display: flex;
+      border-bottom: 2px solid var(--line);
+      margin-bottom: 12px;
+    }
+    .tab {
+      background: transparent;
+      border-radius: 0;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      color: var(--muted);
+      margin-bottom: -2px;
+    }
+    .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .preview {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fafafa;
+      padding: 16px;
+      max-height: 620px;
+      overflow: auto;
+    }
+    .preview h1 { font-size: 1.35rem; margin: 8px 0 10px; text-align: center; }
+    .preview h2 { font-size: 1.08rem; margin: 18px 0 8px; color: var(--primary); }
+    .preview h3 { font-size: 1rem; margin: 14px 0 6px; }
+    .preview p { margin: 7px 0; }
+    .preview ul { padding-left: 1.4rem; margin: 8px 0; }
+    .preview hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
+    .hidden { display: none !important; }
+    .dialog-overlay, .loading-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      background: rgba(17, 24, 39, 0.42);
+      padding: 10vh 16px 16px;
+    }
+    .dialog {
+      width: min(520px, 100%);
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 18px 45px rgba(0,0,0,0.2);
+      overflow: hidden;
+    }
+    .dialog-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+      padding: 14px 16px;
+    }
+    .dialog-body { padding: 16px; }
+    .api-row { display: flex; gap: 8px; margin-bottom: 8px; }
+    .api-row input { font-family: Consolas, monospace; }
+    .status { min-height: 1.3em; font-size: 0.86rem; color: var(--muted); }
+    .status.valid { color: var(--success); font-weight: 700; }
+    .status.invalid { color: var(--danger); font-weight: 700; }
+    .loading-overlay {
+      z-index: 30;
+      align-items: center;
+      flex-direction: column;
+      padding-top: 16px;
+      background: rgba(255,255,255,0.86);
+    }
+    .spinner {
+      width: 46px;
+      height: 46px;
+      border: 4px solid var(--line);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.85s linear infinite;
+    }
+    .loading-text { margin-top: 12px; color: var(--muted); text-align: center; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .guide { background: #fffdf5; border-color: #e7d9a8; }
+    .guide summary { cursor: pointer; font-weight: 700; font-size: 1.08rem; color: var(--primary-dark); list-style: none; }
+    .guide summary::-webkit-details-marker { display: none; }
+    .guide summary::before { content: "\25B6 "; font-size: 0.8em; }
+    .guide[open] summary::before { content: "\25BC "; }
+    .guide-lead { margin: 14px 0; }
+    .guide-steps { margin: 10px 0 4px 1.5rem; padding: 0; }
+    .guide-steps li { margin: 9px 0; line-height: 1.75; }
+    .guide-note { margin-top: 14px; padding: 11px 13px; background: #eef6ff; border-radius: 8px; font-size: 0.92rem; color: #334155; }
+    .guide a { color: var(--primary); font-weight: 700; }
+    @media (max-width: 700px) {
+      .container { width: min(100% - 20px, 980px); padding-top: 16px; }
+      header { grid-template-columns: 1fr; }
+      h1 { font-size: 1.45rem; }
+      .form-grid { grid-template-columns: 1fr; }
+      .row-actions { align-items: flex-start; flex-direction: column; }
+      .api-row { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>株式会社エフシー議事録AI</h1>
+        <p class="subtitle">文字起こし済みテキストから取締役会向けの議事録を生成し、A3横2段のWord形式で出力します。</p>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-start;">
+        <button class="btn-accent" id="btnCopyPrompt" type="button">文字起こしプロンプトをコピー</button>
+        <button class="btn-primary" id="btnGuide" type="button">❓ 使い方</button>
+        <button class="btn-ghost api-button" id="btnApiKeyToggle" type="button">APIキー未設定</button>
+      </div>
+    </header>
+
+    <div id="apiKeyOverlay" class="dialog-overlay hidden">
+      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="apiTitle">
+        <div class="dialog-header">
+          <h2 id="apiTitle">Gemini APIキー</h2>
+          <button class="btn-ghost btn-small" id="btnApiClose" type="button">閉じる</button>
+        </div>
+        <div class="dialog-body">
+          <div class="api-row">
+            <input type="password" id="apiKey" autocomplete="off" spellcheck="false" placeholder="Gemini APIキーを入力">
+            <button class="btn-accent" id="btnVerifyKey" type="button">確認</button>
+          </div>
+          <p id="apiKeyStatus" class="status"></p>
+          <p class="hint">キーはこのブラウザのlocalStorageにのみ保存します。必要な場合はHTML内の <code>EMBEDDED_KEY</code> に設定できます。</p>
+        </div>
+      </div>
+    </div>
+
+    <details class="card guide" id="guideBox" open>
+      <summary>📖 はじめての方へ ― 使い方ガイド（クリックで開閉できます）</summary>
+      <p class="guide-lead">このツールは、会議の録音から<strong>取締役会議事録のWordファイル</strong>を作成します。<br>
+      文字起こし（音声を文字にする作業）だけは無料サイト「Google AI Studio」で行い、その文字をこのツールに貼り付けます。下の手順どおりに進めてください。</p>
+      <ol class="guide-steps">
+        <li>会議を録音した音声ファイル（MP3・M4A・WAVなど）をパソコンに用意します。</li>
+        <li>画面<strong>右上の「文字起こしプロンプトをコピー」ボタン</strong>を押します（AIへの指示文がコピーされます）。</li>
+        <li>インターネットで <a href="https://aistudio.google.com/" target="_blank" rel="noopener">Google AI Studio（aistudio.google.com）</a> を開き、Googleアカウントでログインします。</li>
+        <li>AI Studioの入力欄に、コピーした指示文を貼り付け（<strong>Ctrl+V</strong>）、続けて録音ファイルを「＋」やクリップのマークからアップロードします。</li>
+        <li>「<strong>Run（実行）</strong>」を押すと、話者ごとに整理された文字起こしが表示されます。表示された文章をすべて選択してコピー（<strong>Ctrl+C</strong>）します。</li>
+        <li>このツールに戻り、「<strong>1 文字起こしテキスト</strong>」の欄に貼り付け（<strong>Ctrl+V</strong>）ます。</li>
+        <li>画面上の「<strong>会議情報</strong>」に、会議名・日時・出席取締役の名前を入力します。</li>
+        <li>補足があれば「<strong>テキストメモ・補足</strong>」に書きます（例：「話者Aは田中社長」「第3号議案は次回に持ち越し」など）。</li>
+        <li><strong>「議事録を生成」ボタン</strong>を押します。少し待つと、取締役会議事録の文章が下に表示されます。直したい箇所は「編集」タブで修正できます。</li>
+        <li><strong>「Word」ボタン</strong>を押すとWordファイル（.docx）がダウンロードされます。Wordで開いて確認・印刷してください。</li>
+      </ol>
+      <p class="guide-note">💡 APIキーは設定済みなので、キーの入力は不要です。うまくいかないときは、画面に出たメッセージをそのまま管理者にお知らせください。</p>
+    </details>
+
+    <section class="card">
+      <h2>会議情報</h2>
+      <div class="form-grid">
+        <div>
+          <label for="meetingTitle">会議名</label>
+          <input type="text" id="meetingTitle" value="取締役会" placeholder="例: 取締役会">
+        </div>
+        <div>
+          <label for="meetingDate">日時</label>
+          <input type="datetime-local" id="meetingDate">
+        </div>
+        <div class="full">
+          <label for="participants">出席取締役</label>
+          <textarea id="participants" rows="3" placeholder="例: 田中一郎、山田花子、佐藤健太"></textarea>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2><span class="step">1</span>文字起こしテキスト</h2>
+      <p class="hint">Google AI Studioで文字起こしした内容を貼り付けてください（指示文は右上の「文字起こしプロンプトをコピー」ボタンから）。</p>
+      <textarea id="transcript" rows="14" placeholder="ここに文字起こし済みテキストを貼り付けます。"></textarea>
+    </section>
+
+    <section class="card">
+      <h2>テキストメモ・補足</h2>
+      <textarea id="memo" rows="6" placeholder="議事録に反映したい補足、決議事項、発言者の情報などを入力します。"></textarea>
+    </section>
+
+    <div class="actions">
+      <button class="btn-primary" id="btnGenerate" type="button">議事録を生成</button>
+    </div>
+
+    <section id="resultSection" class="card hidden">
+      <div class="row-actions">
+        <h2>生成された議事録</h2>
+        <div>
+          <button class="btn-ghost btn-small" id="btnCopy" type="button">コピー</button>
+          <button class="btn-primary btn-small" id="btnDocx" type="button">Word</button>
+        </div>
+      </div>
+      <div class="tabs">
+        <button class="tab active" id="tabPreview" type="button">プレビュー</button>
+        <button class="tab" id="tabEdit" type="button">編集</button>
+      </div>
+      <div id="resultPreview" class="preview"></div>
+      <textarea id="resultEdit" class="hidden" rows="24"></textarea>
+    </section>
+  </div>
+
+  <script src="docx.umd.js"></script>
+  <script>
+    // このテンプレートはキー無し（Git管理用）。配布時はこの行に Gemini キーを貼って 議事録AI.html として保存する。
+    // 例: const EMBEDDED_KEY = "AIzaSy...";  ← キー入りファイルは .gitignore でコミット禁止
+    const EMBEDDED_KEY = "";
+    const API_KEY_STORAGE = "gijiroku_api_key";
+    const MODEL = "gemini-3-flash-preview";
+    const MODEL_FALLBACK = "gemini-2.5-flash";
+    const MAX_RETRIES = 5;
+    const RETRY_DELAY_MS = 5000;
+    const TRANSCRIBE_PROMPT = `会議は日本語音声です。この音声ファイルの文字起こしをしてください。
+
+## ルール
+- 複数人が話しているので、話す人ごとに改行してください
+- 話者が判別できる場合は「話者A:」「話者B:」のように区別してください
+- 「えー」や「あー」など話す人特有の癖は文字にしないでください
+- 改行、句読点を付けてもっと詳細に書いてください
+- 発言者ごとに改行してください
+- 聞き取れない箇所は「[聞き取り不可]」と記載してください`;
+
+    let currentResult = "";
+
+    const els = {};
+    document.addEventListener("DOMContentLoaded", () => {
+      [
+        "btnApiKeyToggle", "apiKeyOverlay", "btnApiClose", "apiKey", "btnVerifyKey",
+        "apiKeyStatus", "meetingTitle", "meetingDate", "participants", "transcript",
+        "memo", "btnGenerate", "resultSection", "resultPreview", "resultEdit",
+        "tabPreview", "tabEdit", "btnCopy", "btnDocx", "btnCopyPrompt",
+        "btnGuide", "guideBox"
+      ].forEach((id) => els[id] = document.getElementById(id));
+
+      const saved = localStorage.getItem(API_KEY_STORAGE);
+      if (saved) els.apiKey.value = saved;
+      setDefaultDate();
+      updateApiKeyLabel();
+
+      els.btnApiKeyToggle.addEventListener("click", openApiDialog);
+      els.btnApiClose.addEventListener("click", closeApiDialog);
+      els.apiKeyOverlay.addEventListener("click", (event) => {
+        if (event.target === els.apiKeyOverlay) closeApiDialog();
+      });
+      els.btnVerifyKey.addEventListener("click", verifyApiKey);
+      els.apiKey.addEventListener("input", updateApiKeyLabel);
+      els.btnGenerate.addEventListener("click", generateMinutes);
+      els.btnCopyPrompt.addEventListener("click", copyTranscribePrompt);
+      els.btnGuide.addEventListener("click", openGuide);
+      els.tabPreview.addEventListener("click", () => switchTab("preview"));
+      els.tabEdit.addEventListener("click", () => switchTab("edit"));
+      els.btnCopy.addEventListener("click", copyResult);
+      els.btnDocx.addEventListener("click", downloadDocx);
+    });
+
+    function setDefaultDate() {
+      const now = new Date();
+      const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+      els.meetingDate.value = local.toISOString().slice(0, 16);
+    }
+
+    function getApiKey() {
+      return (EMBEDDED_KEY || els.apiKey.value || localStorage.getItem(API_KEY_STORAGE) || "").trim();
+    }
+
+    function requireApiKey() {
+      const key = getApiKey();
+      if (!key) {
+        alert("Gemini APIキーを入力してください。");
+        openApiDialog();
+        els.apiKey.focus();
+        return "";
+      }
+      return key;
+    }
+
+    function openApiDialog() {
+      els.apiKeyOverlay.classList.remove("hidden");
+      setTimeout(() => els.apiKey.focus(), 0);
+    }
+
+    function closeApiDialog() {
+      els.apiKeyOverlay.classList.add("hidden");
+    }
+
+    function updateApiKeyLabel() {
+      const configured = !!getApiKey();
+      els.btnApiKeyToggle.textContent = configured ? "APIキー設定済み" : "APIキー未設定";
+      els.btnApiKeyToggle.classList.toggle("configured", configured);
+    }
+
+    async function verifyApiKey() {
+      const key = (els.apiKey.value || EMBEDDED_KEY).trim();
+      if (!key) {
+        els.apiKeyStatus.textContent = "APIキーを入力してください。";
+        els.apiKeyStatus.className = "status invalid";
+        return;
+      }
+      els.apiKeyStatus.textContent = "確認中...";
+      els.apiKeyStatus.className = "status";
+      try {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`);
+        if (!res.ok) throw new Error(await res.text());
+        localStorage.setItem(API_KEY_STORAGE, key);
+        els.apiKeyStatus.textContent = "有効なAPIキーです。";
+        els.apiKeyStatus.className = "status valid";
+        updateApiKeyLabel();
+        setTimeout(closeApiDialog, 700);
+      } catch (err) {
+        els.apiKeyStatus.textContent = "確認できませんでした。キーまたは通信制限を確認してください。";
+        els.apiKeyStatus.className = "status invalid";
+      }
+    }
+
+    async function generateMinutes() {
+      const apiKey = requireApiKey();
+      if (!apiKey) return;
+
+      const transcript = els.transcript.value.trim();
+      const memo = els.memo.value.trim();
+      if (!transcript && !memo) {
+        alert("文字起こしテキストまたはメモを入力してください。");
+        return;
+      }
+
+      const overlay = showLoading("Geminiで議事録を生成中...");
+      els.btnGenerate.disabled = true;
+      try {
+        const prompt = buildMinutesPrompt({
+          transcript,
+          memo,
+          meetingTitle: els.meetingTitle.value.trim(),
+          participants: els.participants.value.trim(),
+          date: formatMeetingDate(els.meetingDate.value)
+        });
+        const minutes = await callGeminiText(apiKey, prompt);
+        if (!minutes.trim()) throw new Error("Geminiから空の応答が返りました。");
+        showResult(minutes);
+      } catch (err) {
+        alert(`エラー: ${err.message}`);
+      } finally {
+        overlay.remove();
+        els.btnGenerate.disabled = false;
+      }
+    }
+
+    function formatMeetingDate(value) {
+      if (!value) return new Date().toLocaleDateString("ja-JP");
+      return new Date(value).toLocaleString("ja-JP", {
+        year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit"
+      });
+    }
+
+    async function callGeminiText(apiKey, prompt) {
+      const body = {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.3, maxOutputTokens: 65536 }
+      };
+      try {
+        return await callGeminiWithRetry(apiKey, MODEL, body);
+      } catch (primaryError) {
+        try {
+          return await callGeminiWithRetry(apiKey, MODEL_FALLBACK, body);
+        } catch (fallbackError) {
+          if (/503|UNAVAILABLE|429/.test(fallbackError.message)) {
+            throw new Error("AIサーバーが混み合っています。しばらく時間を置いて再試行してください。");
+          }
+          throw fallbackError;
+        }
+      }
+    }
+
+    async function callGeminiWithRetry(apiKey, model, body) {
+      let lastError;
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+          });
+          if (res.ok) {
+            const data = await res.json();
+            return data.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("") || "";
+          }
+          const errText = await res.text();
+          lastError = new Error(`Gemini APIエラー (${res.status}, ${model}): ${errText}`);
+          if ((res.status === 503 || res.status === 429) && attempt < MAX_RETRIES) {
+            await sleep(RETRY_DELAY_MS);
+            continue;
+          }
+          throw lastError;
+        } catch (err) {
+          lastError = err;
+          if (attempt < MAX_RETRIES) {
+            await sleep(RETRY_DELAY_MS);
+            continue;
+          }
+        }
+      }
+      throw lastError;
+    }
+
+    function sleep(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    function buildMinutesPrompt({ transcript, memo, meetingTitle, participants, date }) {
+      return `あなたは取締役会の議事録を作成する専門アシスタントです。以下の文字起こしテキストから、正式な取締役会議事録を作成してください。
+
+## 会議情報
+- 会議名: ${meetingTitle || "取締役会"}
+- 日時: ${date || new Date().toLocaleDateString("ja-JP")}
+- 参加者: ${participants || "（未設定）"}
+
+## 文字起こしテキスト
+${transcript || "（なし）"}
+
+## 手書きメモ・補足
+${memo || "（なし）"}
+
+## 出力フォーマット
+以下の取締役会議事録の形式でMarkdownを作成してください：
+
+# 取　締　役　会　議　事　録
+
+{日時（令和○年○月○日（○曜日）午前/午後○時より）}、{場所}において、取締役{○名}出席のもとに取締役会を開催し、{議長名}が議長となり次の議案につき慎重に協議した結果、全会一致をもって、下記のとおり可決確定したので、{終了時刻}散会した。
+
+## 議案及び議決内容
+
+## 第1号議案　{議案名}について
+
+{議案の内容を段落で記述。発言者と発言内容を具体的に書く。}
+
+## 第2号議案　{議案名}について
+
+{同様に記述}
+
+（議案の数は会議の内容に応じて増減）
+
+---
+
+===SIGNATURE===
+
+以上の決議を明確にするため、この議事録を作り、出席取締役の全員がこれに記名押印する。
+
+{日付（令和○年○月○日）}
+　　　　{会社名}
+　　　　　　　　　　出席取締役　　{名前}
+　　　　　　　　　　出席取締役　　{名前}
+　　　　　　　　　　出席取締役　　{名前}
+（出席者全員を列挙）
+
+---
+
+### ルール
+- 文字起こしテキストから日時・場所・出席者・議長を判断してください
+- 議案番号（第1号議案、第2号議案...）は会議の議題に応じて自動で振ってください
+- 各議案の内容は、誰がどのような発言をしたかを具体的に記載してください
+- 冒頭の定型文（「○○において、取締役○名出席のもとに〜」）は必ず含めてください
+- 末尾の署名欄は、出席者全員の名前を列挙してください
+- 不明な点は「※要確認」と注記してください
+- 格式のある正式なビジネス文書として記述してください
+- **「承知いたしました」「以下に〜」などの前置き・挨拶文は一切不要です。いきなり「# 取　締　役　会　議　事　録」から始めてください**
+- **署名欄の前に必ず「===SIGNATURE===」という区切り行を入れてください。この行はWord出力時に本文と署名欄の区切りとして使います**`;
+    }
+
+    function showResult(markdown) {
+      currentResult = markdown;
+      els.resultSection.classList.remove("hidden");
+      els.resultPreview.innerHTML = renderMarkdown(markdown);
+      els.resultEdit.value = markdown;
+      switchTab("preview");
+      els.resultSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function switchTab(mode) {
+      if (mode === "edit") {
+        els.resultPreview.classList.add("hidden");
+        els.resultEdit.classList.remove("hidden");
+        els.resultEdit.value = currentResult;
+        els.tabPreview.classList.remove("active");
+        els.tabEdit.classList.add("active");
+      } else {
+        if (!els.resultEdit.classList.contains("hidden")) {
+          currentResult = els.resultEdit.value;
+          els.resultPreview.innerHTML = renderMarkdown(currentResult);
+        }
+        els.resultEdit.classList.add("hidden");
+        els.resultPreview.classList.remove("hidden");
+        els.tabEdit.classList.remove("active");
+        els.tabPreview.classList.add("active");
+      }
+    }
+
+    function renderMarkdown(md) {
+      const html = escapeHtml(md)
+        .replace(/^### (.+)$/gm, "<h3>$1</h3>")
+        .replace(/^## (.+)$/gm, "<h2>$1</h2>")
+        .replace(/^# (.+)$/gm, "<h1>$1</h1>")
+        .replace(/^---$/gm, "<hr>")
+        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+        .replace(/^- (.+)$/gm, "<li>$1</li>")
+        .replace(/\n{2,}/g, "</p><p>")
+        .replace(/\n/g, "<br>");
+      return `<p>${html}</p>`.replace(/(<li>.*?<\/li>(?:<br>)?)+/g, (match) => `<ul>${match.replace(/<br>/g, "")}</ul>`);
+    }
+
+    function escapeHtml(value) {
+      return value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function openGuide() {
+      els.guideBox.open = true;
+      els.guideBox.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function copyTranscribePrompt() {
+      navigator.clipboard.writeText(TRANSCRIBE_PROMPT).then(() => {
+        const original = els.btnCopyPrompt.textContent;
+        els.btnCopyPrompt.textContent = "コピーしました！";
+        setTimeout(() => els.btnCopyPrompt.textContent = original, 1500);
+      }).catch(() => alert("コピーに失敗しました。お手数ですが下の指示文を手動で選択してコピーしてください。"));
+    }
+
+    function copyResult() {
+      const text = els.resultEdit.classList.contains("hidden") ? currentResult : els.resultEdit.value;
+      navigator.clipboard.writeText(text).then(() => {
+        const original = els.btnCopy.textContent;
+        els.btnCopy.textContent = "コピー済み";
+        setTimeout(() => els.btnCopy.textContent = original, 1200);
+      });
+    }
+
+    async function downloadDocx() {
+      if (!window.docx) {
+        alert("docx.umd.jsを読み込めませんでした。HTMLファイルと同じフォルダにdocx.umd.jsがあるか確認してください。");
+        return;
+      }
+      if (!els.resultEdit.classList.contains("hidden")) {
+        currentResult = els.resultEdit.value;
+        els.resultPreview.innerHTML = renderMarkdown(currentResult);
+      }
+      if (!currentResult.trim()) return;
+
+      const overlay = showLoading("Wordファイルを生成中...");
+      try {
+        const blob = await buildDocxBlob(currentResult);
+        const title = sanitizeFilename(els.meetingTitle.value.trim() || "議事録");
+        triggerDownload(blob, `${title}_${new Date().toISOString().slice(0, 10)}.docx`);
+      } catch (err) {
+        alert(`Word生成エラー: ${err.message}`);
+      } finally {
+        overlay.remove();
+      }
+    }
+
+    async function buildDocxBlob(markdown) {
+      const { Document, Packer, Paragraph, TextRun, AlignmentType, PageOrientation } = window.docx;
+      const doc = new Document({
+        styles: {
+          default: {
+            document: {
+              run: { font: "Century", size: 22 },
+              paragraph: { spacing: { line: 300, after: 0 } }
+            }
+          }
+        },
+        sections: [{
+          properties: {
+            page: {
+              size: { width: 16838, height: 23811, orientation: PageOrientation.LANDSCAPE },
+              margin: { top: 1701, right: 1701, bottom: 1701, left: 1701 }
+            },
+            column: { count: 2, space: 2268, equalWidth: true }
+          },
+          children: convertMarkdownForColumns(markdown, { Paragraph, TextRun, AlignmentType })
+        }]
+      });
+      return await Packer.toBlob(doc);
+    }
+
+    function convertMarkdownForColumns(md, docxApi) {
+      let bodyMd = md;
+      let signatureMd = "";
+      if (md.includes("===SIGNATURE===")) {
+        const parts = md.split("===SIGNATURE===");
+        bodyMd = parts.shift().trim();
+        signatureMd = parts.join("===SIGNATURE===").trim();
+      }
+      const paragraphs = convertLinesToParagraphs(bodyMd, true, docxApi);
+      if (signatureMd) paragraphs.push(...convertLinesToParagraphs(signatureMd, false, docxApi));
+      return paragraphs;
+    }
+
+    function convertLinesToParagraphs(md, isBody, { Paragraph, TextRun, AlignmentType }) {
+      if (!md) return [];
+      const lines = md.split("\n").reduce((acc, line) => {
+        if (line.trim() === "" && acc.length > 0 && acc[acc.length - 1].trim() === "") return acc;
+        acc.push(line);
+        return acc;
+      }, []);
+      const paragraphs = [];
+
+      for (const line of lines) {
+        if (line.startsWith("# ")) {
+          paragraphs.push(new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 0, after: 200 },
+            children: [new TextRun({ text: line.slice(2), bold: true, size: 28, font: "MS Mincho" })]
+          }));
+        } else if (line.startsWith("## ")) {
+          paragraphs.push(new Paragraph({
+            spacing: { before: 200, after: 60 },
+            children: [new TextRun({ text: line.slice(3), bold: true, size: 22, font: "MS Mincho" })]
+          }));
+        } else if (line.startsWith("### ")) {
+          paragraphs.push(new Paragraph({
+            spacing: { before: 100, after: 0 },
+            children: [new TextRun({ text: line.slice(4), bold: true, size: 22, font: "MS Mincho" })]
+          }));
+        } else if (line.startsWith("---")) {
+          continue;
+        } else if (line.trim() === "") {
+          if (!isBody) paragraphs.push(new Paragraph({ children: [] }));
+        } else if (line.startsWith("　")) {
+          paragraphs.push(new Paragraph({
+            children: [new TextRun({ text: line, font: "MS Mincho", size: 22 })]
+          }));
+        } else {
+          paragraphs.push(new Paragraph({
+            indent: isBody ? { firstLine: 420 } : undefined,
+            children: parseInline(line, TextRun)
+          }));
+        }
+      }
+      return paragraphs;
+    }
+
+    function parseInline(text, TextRun) {
+      const runs = [];
+      let buffer = "";
+      let index = 0;
+      while (index < text.length) {
+        if (text[index] === "\\" && (text[index + 1] === "*" || text[index + 1] === "\\")) {
+          buffer += text[index + 1];
+          index += 2;
+          continue;
+        }
+        if (text[index] === "*" && text[index + 1] === "*") {
+          const close = findClosingBold(text, index + 2);
+          if (close !== -1) {
+            if (buffer) {
+              runs.push(new TextRun({ text: buffer, font: "MS Mincho", size: 22 }));
+              buffer = "";
+            }
+            runs.push(new TextRun({ text: unescapeMarkdown(text.slice(index + 2, close)), bold: true, font: "MS Mincho", size: 22 }));
+            index = close + 2;
+            continue;
+          }
+        }
+        buffer += text[index];
+        index++;
+      }
+      if (buffer) runs.push(new TextRun({ text: buffer, font: "MS Mincho", size: 22 }));
+      return runs.length ? runs : [new TextRun({ text, font: "MS Mincho", size: 22 })];
+    }
+
+    function findClosingBold(text, start) {
+      for (let i = start; i < text.length - 1; i++) {
+        if (text[i] === "\\" && i + 1 < text.length) {
+          i++;
+          continue;
+        }
+        if (text[i] === "*" && text[i + 1] === "*") return i;
+      }
+      return -1;
+    }
+
+    function unescapeMarkdown(text) {
+      return text.replace(/\\([\\*])/g, "$1");
+    }
+
+    function triggerDownload(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    }
+
+    function sanitizeFilename(value) {
+      return value.replace(/[\\/:*?"<>|]/g, "_").trim() || "議事録";
+    }
+
+    function showLoading(text) {
+      const overlay = document.createElement("div");
+      overlay.className = "loading-overlay";
+      overlay.innerHTML = `<div class="spinner"></div><p class="loading-text">${escapeHtml(text)}</p>`;
+      document.body.appendChild(overlay);
+      return overlay;
+    }
+  </script>
+</body>
+</html>

@@ -1,3 +1,5 @@
 node_modules/
 tmp/
 .env
+# Geminiキー埋め込み済みの配布用ファイル（秘密情報のためコミット禁止）
+dist-html/議事録AI.html
